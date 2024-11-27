@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div class="container mx-auto p-6">
+    <!-- Header -->
+    <header class="text-center mb-6">
+      <h1 class="text-4xl font-bold">Task Manager</h1>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex justify-center space-x-4 mb-6">
+      <button id="ongoingTab" class="bg-blue-500 text-white px-4 py-2 rounded">Đang Diễn Ra</button>
+      <button id="completedTab" class="bg-gray-300 text-gray-800 px-4 py-2 rounded">Đã Hoàn Thành</button>
+    </div>
+
+    <!-- Form nhập công việc -->
+    <div id="taskForm" class="mb-6">
+      <h2 class="text-2xl font-bold mb-4">Thêm Công Việc</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input id="taskTitle" type="text" placeholder="Tên công việc" class="border border-gray-300 p-2 rounded">
+        <input id="startTime" type="datetime-local" class="border border-gray-300 p-2 rounded">
+        <input id="deadlineTime" type="datetime-local" class="border border-gray-300 p-2 rounded">
+        <button id="addTask" class="bg-green-500 text-white px-4 py-2 rounded">Thêm Công Việc</button>
+      </div>
+      <p id="error" class="text-red-500 mt-2 hidden"></p>
+    </div>
+
+    <!-- Danh sách công việc -->
+    <div id="ongoingTasks" class="">
+      <h2 class="text-2xl font-bold mb-4">Danh Sách Đang Diễn Ra</h2>
+      <table class="table-auto w-full border-collapse border border-gray-400">
+        <thead>
+          <tr>
+            <th class="border border-gray-300 px-4 py-2">Tên Công Việc</th>
+            <th class="border border-gray-300 px-4 py-2">Bắt Đầu</th>
+            <th class="border border-gray-300 px-4 py-2">Hạn</th>
+            <th class="border border-gray-300 px-4 py-2">Hành Động</th>
+          </tr>
+        </thead>
+        <tbody id="ongoingTasksTable">
+          <!-- Công việc chưa hoàn thành -->
+        </tbody>
+      </table>
+    </div>
+
+    <div id="completedTasks" class="hidden">
+      <h2 class="text-2xl font-bold mb-4">Danh Sách Đã Hoàn Thành</h2>
+      <table class="table-auto w-full border-collapse border border-gray-400">
+        <thead>
+          <tr>
+            <th class="border border-gray-300 px-4 py-2">Tên Công Việc</th>
+            <th class="border border-gray-300 px-4 py-2">Bắt Đầu</th>
+            <th class="border border-gray-300 px-4 py-2">Hạn</th>
+          </tr>
+        </thead>
+        <tbody id="completedTasksTable">
+          <!-- Công việc hoàn thành -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    const ongoingTab = document.getElementById('ongoingTab');
+    const completedTab = document.getElementById('completedTab');
+    const ongoingTasks = document.getElementById('ongoingTasks');
+    const completedTasks = document.getElementById('completedTasks');
+
+    const taskTitle = document.getElementById('taskTitle');
+    const startTime = document.getElementById('startTime');
+    const deadlineTime = document.getElementById('deadlineTime');
+    const addTask = document.getElementById('addTask');
+    const error = document.getElementById('error');
+
+    const ongoingTasksTable = document.getElementById('ongoingTasksTable');
+    const completedTasksTable = document.getElementById('completedTasksTable');
+
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+    // Toggle tabs
+    ongoingTab.addEventListener('click', () => {
+      ongoingTab.classList.add('bg-blue-500', 'text-white');
+      completedTab.classList.remove('bg-blue-500', 'text-white');
+      ongoingTasks.classList.remove('hidden');
+      completedTasks.classList.add('hidden');
+    });
+
+    completedTab.addEventListener('click', () => {
+      completedTab.classList.add('bg-blue-500', 'text-white');
+      ongoingTab.classList.remove('bg-blue-500', 'text-white');
+      completedTasks.classList.remove('hidden');
+      ongoingTasks.classList.add('hidden');
+    });
+
+    // Render tasks
+    function renderTasks() {
+      ongoingTasksTable.innerHTML = '';
+      completedTasksTable.innerHTML = '';
+      const now = new Date();
+
+      tasks.forEach((task, index) => {
+        const row = document.createElement('tr');
+        const deadlineDate = new Date(task.deadlineTime);
+
+        row.innerHTML = `
+          <td class="border border-gray-300 px-4 py-2">${task.title}</td>
+          <td class="border border-gray-300 px-4 py-2">${task.startTime}</td>
+          <td class="border border-gray-300 px-4 py-2 ${deadlineDate - now < 12 * 60 * 60 * 1000 ? 'bg-red-500 text-white' : ''}">
+            ${task.deadlineTime}
+          </td>
+          <td class="border border-gray-300 px-4 py-2">
+            ${
+              task.isDone
+                ? ''
+                : `<button onclick="markAsDone(${index})" class="bg-green-500 text-white px-2 py-1 rounded">Hoàn Thành</button>
+                   <button onclick="deleteTask(${index})" class="bg-red-500 text-white px-2 py-1 rounded">Xóa</button>`
+            }
+          </td>
+        `;
+
+        if (task.isDone) {
+          completedTasksTable.appendChild(row);
+        } else {
+          ongoingTasksTable.appendChild(row);
+        }
+      });
+    }
+
+    // Add task
+    addTask.addEventListener('click', () => {
+      const now = new Date();
+      const startDate = new Date(startTime.value);
+      const deadlineDate = new Date(deadlineTime.value);
+
+      if (!taskTitle.value || !startTime.value || !deadlineTime.value) {
+        error.textContent = 'Vui lòng nhập đầy đủ thông tin!';
+        error.classList.remove('hidden');
+        return;
+      }
+
+      if (startDate - now < 30 * 60 * 1000) {
+        error.textContent = 'Thời gian bắt đầu phải lớn hơn hiện tại ít nhất 30 phút!';
+        error.classList.remove('hidden');
+        return;
+      }
+
+      if (deadlineDate <= startDate) {
+        error.textContent = 'Hạn kết thúc phải lớn hơn thời gian bắt đầu!';
+        error.classList.remove('hidden');
+        return;
+      }
+
+      error.classList.add('hidden');
+
+      tasks.push({
+        title: taskTitle.value,
+        startTime: startTime.value,
+        deadlineTime: deadlineTime.value,
+        isDone: false,
+      });
+
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      taskTitle.value = '';
+      startTime.value = '';
+      deadlineTime.value = '';
+      renderTasks();
+    });
+
+    // Mark task as done
+    function markAsDone(index) {
+      tasks[index].isDone = true;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      renderTasks();
+    }
+
+    // Delete task
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      renderTasks();
+    }
+
+    // Initial render
+    renderTasks();
+  </script>
+</body>
+</html>
